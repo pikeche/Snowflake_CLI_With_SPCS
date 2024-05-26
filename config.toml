@@ -1,0 +1,7 @@
+[connections]
+[connections.Dummy]
+account = "test"
+user = "test"
+password = "test"
+warehouse = "test"
+role = "test"

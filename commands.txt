@@ -1,0 +1,11 @@
+
+
+docker build --rm --platform linux/amd64 -t testapp_cli  -f src/docker/Dockerfile  .
+
+docker-compose up 
+
+docker tag streamlit-app sfsenorthamerica-rsaha01.registry.snowflakecomputing.com/detect_anomaly/anomalyapp/app_image_repo/streamlit-app:v1
+
+docker login sfsenorthamerica-rsaha01.registry.snowflakecomputing.com -u ritab
+
+docker push sfsenorthamerica-rsaha01.registry.snowflakecomputing.com/detect_anomaly/anomalyapp/app_image_repo/streamlit-app:v1 

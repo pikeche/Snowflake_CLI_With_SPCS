@@ -1,0 +1,10 @@
+spec:
+  containers:
+    - name: streamlit
+      image: sfsenorthamerica-rsaha01.registry.snowflakecomputing.com/tutorial_cicd_db/public/tutorial_cicd_repo/streamlit-app:latest
+      env:
+        SNOWFLAKE_WAREHOUSE: tutorial_cicd_wh
+  endpoints:
+    - name: streamlit
+      port: 8501
+      public: true
