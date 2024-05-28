@@ -1,0 +1,88 @@
+name: Continuous Deployment Of Docker Image to Snowpark Container Services
+
+on: [push] 
+
+# Set Environmental Variables
+env:
+  DOCKER_USER: ${{secrets.DOCKER_USER}}
+  DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+  DOCKER_LOGIN_NAME: ${{secrets.DOCKER_LOGIN_NAME}}
+  SNOWFLAKE_CONNECTIONS_DUMMY_ACCOUNT: ${{secrets.TGT_ACCOUNT}}
+  SNOWFLAKE_CONNECTIONS_DUMMY_USER: ${{secrets.TGT_USER}}
+  SNOWFLAKE_CONNECTIONS_DUMMY_PASSWORD: ${{secrets.TGT_PASSWORD}}
+   
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name : Docker Login
+      run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+    - name: Run a command
+      run: echo "User=$DOCKER_USER"
+    - name: Docker build image
+      run: docker build --rm --platform linux/amd64 -t streamlit-app  -f src/docker/Dockerfile . 
+
+    # Snowflake CLI installation
+    - uses: Snowflake-Labs/snowflake-cli-action@v1
+      with:
+        cli-version: "latest"
+        default-config-file-path: "config.toml"
+    
+    # Use the CLI
+    - name: Test version
+      run: snow --version
+    - name: Test Connection
+      env:
+        SNOWFLAKE_CONNECTIONS_DUMMY_ROLE: Accountadmin
+        SNOWFLAKE_CONNECTIONS_DUMMY_WAREHOUSE: Research
+      run : snow connection test --connection Dummy
+      
+    # Prepare the database and create role
+    - name: Prepare the database
+      env:
+        SNOWFLAKE_CONNECTIONS_DUMMY_ROLE: Accountadmin
+        SNOWFLAKE_CONNECTIONS_DUMMY_WAREHOUSE: Research
+      run : snow sql -f src/setup/setup.sql  --connection Dummy
+      
+    # Create Image Registry, Push docker image and create service
+    - name: Create Image Registry, Push docker image and create service
+      env:
+        SNOWFLAKE_CONNECTIONS_DUMMY_ROLE: tutorial_cicd_role
+        SNOWFLAKE_CONNECTIONS_DUMMY_WAREHOUSE: tutorial_cicd_wh
+        SNOWFLAKE_CONNECTIONS_DUMMY_DATABASE: tutorial_cicd_db
+        SNOWFLAKE_CONNECTIONS_DUMMY_SCHEMA: public
+      run : |
+        snow connection test --connection Dummy
+        snow spcs image-repository create tutorial_cicd_repo --if-not-exists --connection Dummy
+        repo_url=$(snow spcs image-repository url tutorial_cicd_repo --connection Dummy)
+        docker tag streamlit-app $repo_url/streamlit-app:latest
+        docker images
+        snow spcs image-registry login --connection Dummy
+        docker push $repo_url/streamlit-app:latest
+        snow spcs service create streamlit_spcs --compute-pool tutorial_cicd_compute_pool --spec-path src/setup/spec.yaml --connection Dummy
+    
+    - name: Sleep for 120 seconds. Allow Service to Start and Create Endpoint
+      run: sleep 120s
+      shell: bash
+    
+    - name :  Get service details 
+      env:
+          SNOWFLAKE_CONNECTIONS_DUMMY_ROLE: tutorial_cicd_role
+          SNOWFLAKE_CONNECTIONS_DUMMY_WAREHOUSE: tutorial_cicd_wh
+          SNOWFLAKE_CONNECTIONS_DUMMY_DATABASE: tutorial_cicd_db
+          SNOWFLAKE_CONNECTIONS_DUMMY_SCHEMA: public
+      run : |
+        snow spcs service status streamlit_spcs --connection Dummy
+        snow spcs service list-endpoints streamlit_spcs --connection Dummy 
+
+
+        
+        
+
+
+
+
+    
