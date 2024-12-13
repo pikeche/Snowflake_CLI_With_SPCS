@@ -1,6 +1,6 @@
 name: Continuous Deployment Of Docker Image to Snowpark Container Services
 
-on: [push] 
+on: [push]
 
 # Set Environmental Variables
 env:
